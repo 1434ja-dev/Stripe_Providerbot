@@ -1,1 +1,1 @@
-web: gunicorn webhook:app --bind 0.0.0.0:$PORT
+web: gunicorn payments:app --bind 0.0.0.0:$PORT
