@@ -2,52 +2,48 @@ import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 from config import BOT_TOKEN
-import payments
+import stripe
 
-logging.basicConfig(level=logging.INFO)
+stripe.api_key = STRIPE_SECRET_KEY  # import this too
+
+# Add this to run both the bot AND webhook server
+from payments import app as webhook_app
+import threading
+import os
+
+def run_webhook():
+    webhook_app.run(host="0.0.0.0", port=int(os.getenv("PORT", 8000)))
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Send a welcome message and payment options"""
     keyboard = [
         [InlineKeyboardButton("💳 Buy Premium ($10)", callback_data="buy_premium")],
-        [InlineKeyboardButton("📦 View Products", callback_data="view_products")],
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(
-        "Welcome! Use the buttons below to make a purchase.",
+        "Welcome! Click below to purchase.",
         reply_markup=reply_markup
     )
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle button clicks"""
     query = update.callback_query
     await query.answer()
 
     if query.data == "buy_premium":
-        # Create Stripe checkout session and get payment link
-        session_url = payments.create_checkout_session(
-            price_id=payments.PRODUCT_PRICE_ID,
-            user_id=query.from_user.id
-        )
+        # You'll add Stripe session creation here
         await query.edit_message_text(
-            f"Click the link below to complete your payment:\n\n{session_url}\n\n"
-            "After payment, you'll receive a confirmation."
-        )
-    elif query.data == "view_products":
-        await query.edit_message_text(
-            "📦 **Available Products:**\n"
-            "• Premium Subscription - $10/month\n"
-            "More products coming soon!"
+            "Processing payment... (Stripe integration coming soon)"
         )
 
 def main():
-    """Start the bot"""
+    # Start webhook server in background thread
+    threading.Thread(target=run_webhook, daemon=True).start()
+    
+    # Start bot
     app = Application.builder().token(BOT_TOKEN).build()
-
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(button_handler))
-
-    print("Bot is running...")
+    
+    print("Bot is running on Railway!")
     app.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == "__main__":
